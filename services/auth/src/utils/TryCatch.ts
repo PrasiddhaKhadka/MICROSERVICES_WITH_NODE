@@ -9,15 +9,15 @@ export const TryCatch = (controller:(req:Request,res:Response,next:NextFunction)
         
     } catch (error:any) {
         if(error instanceof ErrorHandler){
-            res.status(500).json({
-                success:'false',
+            return res.status(error.statusCode || 400).json({
+                success:false,
                 msg:error.message
             })
         }
-        res.status(500).json({
+
+        return res.status(500).json({
+            success:false,
             message:error.message
         })
     }
-
-
 }

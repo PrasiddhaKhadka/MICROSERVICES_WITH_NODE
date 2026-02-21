@@ -6,6 +6,8 @@ import {sql} from './utils/db.js'
 dotenv.config()
 
 
+
+
 async function initDb(){
     try {
         await sql`
