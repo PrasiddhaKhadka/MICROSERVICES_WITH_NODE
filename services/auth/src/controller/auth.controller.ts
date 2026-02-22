@@ -6,6 +6,8 @@ import axios from 'axios';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { TryCatch } from '../utils/TryCatch.js'
 import { sql } from '../utils/db.js';
+import { resetPasswordTemplate } from '../reset_pass.template.js';
+import { publishToTopic } from '../producer.js';
 
 
 export const registerUser = TryCatch(async (req, res, next) => {
@@ -141,5 +143,54 @@ export const loginUser = TryCatch(async (req, res, next) => {
         success: true,
         token,
         user,
+    });
+});
+
+
+
+
+export const forgotPassword = TryCatch(async (req, res, next) => {
+    const { email } = req.body;
+
+    if (!email) {
+        throw new ErrorHandler(400, 'Email is required');
+    }
+
+    const [existingUser] = await sql`
+        SELECT user_id, name, email FROM users WHERE email = ${email}
+    `;
+
+    if (!existingUser) {
+        throw new ErrorHandler(404, 'No account found with this email');
+    }
+
+    const payload = {
+        user_id: existingUser.user_id,
+        email: existingUser.email,
+    };
+
+    const token = jwt.sign(
+        payload,
+        process.env.JWT_SECRET as string,
+        {
+            expiresIn: '15m',
+        }
+    );
+
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+
+    const message = {
+        to:email,
+        subject:'Rest your password: JobPortal',
+        html:resetPasswordTemplate(email,resetLink)
+    }
+
+    publishToTopic("send-mail",message).catch((e)=>{
+        console.log('failed to send message',e)
+    })
+
+    res.status(200).json({
+        success: true,
+        message: 'Password reset link has been sent to your email',
     });
 });
