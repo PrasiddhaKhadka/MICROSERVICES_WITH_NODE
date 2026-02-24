@@ -8,6 +8,7 @@ import { TryCatch } from '../utils/TryCatch.js'
 import { sql } from '../utils/db.js';
 import { resetPasswordTemplate } from '../reset_pass.template.js';
 import { publishToTopic } from '../producer.js';
+import { redisClient } from '../index.js';
 
 
 export const registerUser = TryCatch(async (req, res, next) => {
@@ -167,6 +168,7 @@ export const forgotPassword = TryCatch(async (req, res, next) => {
     const payload = {
         user_id: existingUser.user_id,
         email: existingUser.email,
+        type:"reset",
     };
 
     const token = jwt.sign(
@@ -179,6 +181,9 @@ export const forgotPassword = TryCatch(async (req, res, next) => {
 
     const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
 
+     await redisClient.set(`forgot:${email}`, token, { EX: 900 });
+
+    
     const message = {
         to:email,
         subject:'Rest your password: JobPortal',
@@ -192,5 +197,52 @@ export const forgotPassword = TryCatch(async (req, res, next) => {
     res.status(200).json({
         success: true,
         message: 'Password reset link has been sent to your email',
+    });
+});
+
+
+export const resetPassword = TryCatch(async (req, res, next) => {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    let decoded: any;
+
+    try {
+        decoded = jwt.verify(token as string, process.env.JWT_SECRET as string);
+    } catch (error) {
+        throw new ErrorHandler(400, "Invalid token type");
+    }
+
+   
+    if (decoded.type !== "reset") {
+        throw new ErrorHandler(400, "Invalid token type");
+    }
+
+    const email = decoded.email;
+
+    const storedToken = await redisClient.get(`forgot:${email}`);
+    if (!storedToken || storedToken !== token) {
+        throw new ErrorHandler(400, "Token has been expired");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await sql`
+        UPDATE users
+        SET password = ${hashedPassword}
+        WHERE email = ${email}
+        RETURNING id, email
+    `;
+
+    if (user.length === 0) {
+        throw new ErrorHandler(404, "User not found");
+    }
+
+    // Invalidate the token after successful reset
+    await redisClient.del(`forgot:${email}`);
+
+    res.status(200).json({
+        success: true,
+        message: "Password reset successfully",
     });
 });
