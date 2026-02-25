@@ -1,13 +1,17 @@
-import { getUserProfile, myProfile, updateUserProfile } from '../controllers/user.controller.js';
-import express from 'express'
+import { getUserProfile, myProfile, updateResume, updateUserProfile } from '../controllers/user.controller.js';
 import { isAuth } from '../middleware/auth.js';
+import express from 'express'
+import uploadFile from '../middleware/multer.js';
+
 
 const router = express()
 
-router.get('/me',isAuth,myProfile);
 
+router.get('/me',isAuth,myProfile);
 router.get('/:userId',isAuth,getUserProfile);
-router.put('/updated/:userId',isAuth,updateUserProfile);
+router.put('/update/:userId',isAuth,updateUserProfile);
+router.put('/update/pic', isAuth, uploadFile, updateUserProfile)
+router.put('/update/resume', isAuth, uploadFile, updateResume)
 
 
 
