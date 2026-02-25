@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { sql } from "utils/db.js";
+import { sql } from "../utils/db.js";
 
 interface User {
   user_id: number;
