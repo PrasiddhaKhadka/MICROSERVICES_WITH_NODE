@@ -17,9 +17,17 @@ interface User {
   subscription: string | null; 
 }
 
+interface UploadedFile {
+    content: Buffer;
+    mimetype: string;
+    originalname: string;
+}
+
+
 // Extend Express Request type to include user
 export interface AuthenticatedRequest extends Request{
     user?: User
+    file?: UploadedFile; 
 }
 
 export const isAuth = async (
